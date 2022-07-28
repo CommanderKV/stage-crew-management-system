@@ -42,6 +42,15 @@ This program will:
 
 import tkinter
 
+
+def submit_student(fname, lname, email, events):
+    global add_student_window
+    print(f"{fname} {lname} {email} {events}")
+    add_student_window.destroy()
+    add_student_window = None
+    main()
+
+
 def add_student():
     global window, add_student_window
     window.destroy ()
@@ -49,17 +58,82 @@ def add_student():
     add_student_window = tkinter.Tk()
     add_student_window.geometry(f"{WIN_WIDTH}x{WIN_HEIGHT}")
 
-    ask_name = tkinter.Label(
-        add_student_window,
-        text="Enter student's full name here:",
-        font=("Comic Sans MS", 15, "bold")
+
+    # ------------------------
+    #   Student input fields
+    # ------------------------
+    studentInputFrame = tkinter.Frame(add_student_window)
+
+    # -----------------
+    #   Students name
+    # -----------------
+    fname_label = tkinter.Label(
+        studentInputFrame,
+        text="First name:",
+        font=("Comic Sans MS", 12, "bold")
     )
-    ask_name.grid (row = 0, column = 0)
+    fname_label.grid (row = 0, column = 0)
 
-    student_name = tkinter.Entry(add_student_window)
-    student_name.grid(row = 1, column = 0)
+    fname = tkinter.Entry(studentInputFrame)
+    fname.grid(row=0, column=1)
+
+    lname_label = tkinter.Label(
+        studentInputFrame,
+        text="Last name:",
+        font=("Comic Sans MS", 12, "bold")
+    )
+    lname_label.grid (row=1, column=0)
+
+    lname = tkinter.Entry(studentInputFrame)
+    lname.grid(row=1, column=1)
 
 
+    # ------------------
+    #   Students email
+    # ------------------
+    email_label = tkinter.Label(
+        studentInputFrame,
+        text="Email:",
+        font=("Comic Sans MS", 12, "bold")
+    )
+    email_label.grid (row=2, column=0)
+
+    email = tkinter.Entry(studentInputFrame)
+    email.grid(row=2, column=1)
+
+
+    # -----------------------------
+    #   Number of events attended
+    # -----------------------------
+    events_label = tkinter.Label(
+        studentInputFrame,
+        text="Amount of events attended:",
+        font=("Comic Sans MS", 12, "bold")
+    )
+    events_label.grid (row=3, column=0)
+
+    events = tkinter.Entry(studentInputFrame)
+    events.grid(row=3, column=1)
+
+
+    # ---------------------------------
+    #   Button for submitting student
+    # ---------------------------------
+    submit_button = tkinter.Button(
+        studentInputFrame,
+        text="Submit",
+        command=lambda: submit_student(fname.get(), lname.get(), email.get(), events.get())
+    )
+    submit_button.grid(row=4, column=1)
+
+    studentInputFrame.pack()
+
+
+
+    # ----------------
+    #   Start window
+    # ----------------
+    studentInputFrame.grid(row=0, column=0)
     add_student_window.mainloop()
 
 
@@ -88,8 +162,8 @@ def main():
 
     window = tkinter.Tk()
 
-    WIN_WIDTH = window.winfo_screenwidth()
-    WIN_HEIGHT = window.winfo_screenheight()
+    WIN_WIDTH = 1000
+    WIN_HEIGHT = 500
     window.geometry(f"{WIN_WIDTH}x{WIN_HEIGHT}")
 
     add_student_button = tkinter.Button(
