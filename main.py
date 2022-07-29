@@ -76,7 +76,7 @@ DB_REFERENCE = db.reference("/")
 #     Database functions
 # \\\\\\\\\\\\\\\\\\\\\\\\\\
 
-def save_student_info(fname: str, lname: str, email: str, events: str, ref: db.reference) -> bool:
+def save_student_info(fname: str, lname: str, email: str, events: str, ref: db.reference, update_students: bool=False) -> bool:
     ref_data = ref.get()
 
     if ref_data is None:
@@ -100,8 +100,11 @@ def save_student_info(fname: str, lname: str, email: str, events: str, ref: db.r
         if items is not None:
             for item in items:
                 if items[item]["email"] == email:
-                    ref.child(item).update(data)
-                    return True
+                    if update_students:
+                        ref.child(item).update(data)
+                        return True
+                    else:
+                        return False
         
         else:
             ref.push().set(data)
@@ -186,6 +189,24 @@ def save_event_info(name: str, date: str, time: str, end_time: str, sound: bool,
 #     Main code functions
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\
 
+def check_time(time: str) -> bool:
+    numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    if len(time) == 5:
+        if time[2] == ":":
+            if time[0] in numbers and time[1] in numbers and time[3] in numbers and time[4] in numbers:
+                return True
+    else:
+        return False
+
+def check_date(date: str) -> bool:
+    numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    if len(date) == 10:
+        if date[4] == "-" and date[7] == "-":
+            if date[0] in numbers and date[1] in numbers and date[2] in numbers and date[3] in numbers and date[5] in numbers and date[6] in numbers and date[8] in numbers and date[9] in numbers:
+                return True
+    else:
+        return False
+
 
 def submit_student(fname, lname, email, events):
     global add_student_window, error_label_add_students
@@ -195,12 +216,16 @@ def submit_student(fname, lname, email, events):
         if lname != "":
             if email != "" and "@" in email and "tdsb.on.ca" in email:
                 if events != "" and all(char in numbers for char in events):
-                    save_student_info(fname, lname, email, events, DB_REFERENCE)
-                    error_label_add_students.configure(text="")
-                    add_student_window.destroy()
-                    add_student_window = None
-                    main()
-                    return
+                    if not save_student_info(fname, lname, email, events, DB_REFERENCE):
+                        error_label_add_students.config(text="Error adding student or student already exists.")
+                        return False
+
+                    else:
+                        error_label_add_students.configure(text="")
+                        add_student_window.destroy()
+                        add_student_window = None
+                        main()
+                        return True
 
                 else:
                     error_label_add_students.configure(text="Amount of events must be entered.")
@@ -320,16 +345,17 @@ def add_student():
 def submit_event(name: str, date: str, time: str, end_time: str, teacher_contact:str, sound: bool, mics: bool, lights: bool, projector: bool, ref: db.reference) -> bool:
     global crate_event_error_message
     if name != "" and name != "Event name" and name.replace(" ", "") != "":
-        if date != "" and date != "yyyy-mm-dd" and date.replace(" ", "") != "" and len(date) == 10:
-            if time != "" and time != "hh:mm" and time.replace(" ", "") != "" and len(time) == 5:
-                if end_time != "" and end_time != "hh:mm" and end_time.replace(" ", "") != "" and len(end_time) == 5:
-                    if teacher_contact != "" and teacher_contact.replace(" ", "") != "" and "tdsb.on.ca" in teacher_contact and "@" in teacher_contact:
+        if date != "" and date != "yyyy-mm-dd" and date.replace(" ", "") != "" and len(date) == 10 and check_date(date):
+            if time != "" and time != "hh:mm" and time.replace(" ", "") != "" and len(time) == 5 and check_time(time):
+                if end_time != "" and end_time != "hh:mm" and end_time.replace(" ", "") != "" and len(end_time) == 5 and check_time(end_time):
+                    if teacher_contact != "" and teacher_contact.replace(" ", "") != "" and "tdsb.on.ca" in teacher_contact and "@" in teacher_contact and len(teacher_contact) >= 20:
                         crate_event_error_message.configure(text="")
                         if not save_event_info(name, date, time, end_time, sound, mics, lights, projector, ref):
                             crate_event_error_message.configure(text="Error uploading event or event already exists.")
                             return False
 
                         else:
+                            main()
                             return True
                     
                     else:
