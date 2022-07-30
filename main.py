@@ -62,6 +62,7 @@ import tkinter
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
+from datetime import date as date_year
 import json
 
 # Initialize Firebase
@@ -131,7 +132,7 @@ def get_students(ref) -> list or None:
         return students
 
 
-def save_event_info(name: str, date: str, time: str, end_time: str, sound: bool, mics: bool, lights: bool, projector: bool, ref: db.reference, update_events: bool=False) -> bool:
+def save_event_info(name: str, date: str, start_time: str, end_time: str, sound: bool, mics: bool, lights: bool, projector: bool, ref: db.reference, update_events: bool=False) -> bool:
     # -------------------------
     #    Check if directory 
     #   exists if not make it
@@ -154,7 +155,7 @@ def save_event_info(name: str, date: str, time: str, end_time: str, sound: bool,
     data = {
         "name": name,
         "date": date,
-        "start time": time,
+        "start time": start_time,
         "end time": end_time,
         "sound": sound,
         "mics": mics,
@@ -165,9 +166,11 @@ def save_event_info(name: str, date: str, time: str, end_time: str, sound: bool,
     # -------------------------
     #   Add event to database
     # -------------------------
-    try:
+    #try:
+    if True:
         items = ref.get()
         if items is not None:
+            print (items)
             for item in items:
                 if items[item]["name"] == name:
                     if update_events:
@@ -180,9 +183,9 @@ def save_event_info(name: str, date: str, time: str, end_time: str, sound: bool,
             ref.push().set(data)
             return True
 
-    except Exception as e:
-        print(e)
-        return False
+    # except Exception as e:
+    #     print(e)
+    #     return False
 
 
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\
@@ -194,7 +197,18 @@ def check_time(time: str) -> bool:
     if len(time) == 5:
         if time[2] == ":":
             if time[0] in numbers and time[1] in numbers and time[3] in numbers and time[4] in numbers:
-                return True
+                if int(time[0:2]) < 24 and int(time[3:5]) < 60:
+                    return True
+                    
+                else:
+                    return False
+
+            else:
+                return False
+
+        else:
+            return False
+
     else:
         return False
 
@@ -203,7 +217,18 @@ def check_date(date: str) -> bool:
     if len(date) == 10:
         if date[4] == "-" and date[7] == "-":
             if date[0] in numbers and date[1] in numbers and date[2] in numbers and date[3] in numbers and date[5] in numbers and date[6] in numbers and date[8] in numbers and date[9] in numbers:
-                return True
+                if int(date[0:4]) >= date_year.today().year and int(date[5:7]) < 13 and int(date[8:10]) < 32:
+                    return True
+
+                else:
+                    return False
+
+            else:
+                return False
+
+        else:
+            return False
+
     else:
         return False
 
@@ -622,11 +647,28 @@ def main():
     window.geometry(f"{WIN_WIDTH}x{WIN_HEIGHT}")
 
 
+    # -------------------
+    #   Main menu label
+    # -------------------
+    main_menu_label = tkinter.Label(
+        window,
+        text="Main menu",
+        font=("Comic Sans MS", 20, "bold")
+    )
+    main_menu_label.grid(row=0, column=0)
+
+
+    # ----------------
+    #   Button frame
+    # ----------------
+    button_frame = tkinter.Frame(window)
+
+
     # ----------------------
     #   Add student button
     # ----------------------
     add_student_button = tkinter.Button(
-        window,
+        button_frame,
         text="Add a student",
         command=add_student
     )
@@ -637,15 +679,17 @@ def main():
     #   Create event button
     # -----------------------
     create_event_button = tkinter.Button(
-        window,
+        button_frame,
         text="Create an event",
         command=create_event
     )
-    create_event_button.grid(row=1, column=0)
+    create_event_button.grid(row=0, column=1)
+
 
     # -------------------
     #   Start main loop
     # -------------------
+    button_frame.grid(row=1, column=0)
     window.mainloop()
 
 
