@@ -58,9 +58,8 @@ db format:
 
 
 import os
-from re import L
 import tkinter
-from turtle import update
+from tkinter import ttk
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
@@ -79,7 +78,8 @@ DB_REFERENCE = db.reference("/")
 #     Database functions
 # \\\\\\\\\\\\\\\\\\\\\\\\\\
 
-def save_student_info(fname: str, lname: str, email: str, events: str, ref: db.reference, update_students: bool=False) -> bool:
+def save_student_info(fname: str, lname: str, email: str, events: str, grade: str, update_students: bool=False) -> bool:
+    ref = db.reference("/")
     ref_data = ref.get()
 
     if ref_data is None:
@@ -95,7 +95,8 @@ def save_student_info(fname: str, lname: str, email: str, events: str, ref: db.r
         "first name": fname,
         "last name": lname,
         "email": email,
-        "events": int (events),
+        "events": int(events),
+        "grade": int(grade),
         "version": 1.1
     }
 
@@ -105,8 +106,9 @@ def save_student_info(fname: str, lname: str, email: str, events: str, ref: db.r
             for item in items:
                 if items[item]["email"] == email:
                     if update_students:
-                        ref.child(item).update(data)
+                        db.reference("/Students/"+item).transaction(lambda value: data if value == items[item] else value)
                         return True
+                    
                     else:
                         return False
         
@@ -236,6 +238,28 @@ def get_all_events():
     return results
 
 
+def get_all_students():
+    ref = db.reference("/")
+    ref_data = ref.get()
+
+    if ref_data is None:
+        ref.set({"Students": {}})
+
+    elif "Students" not in ref_data.keys():
+        ref_data["Students"] = {}
+        ref.set(ref_data)
+    
+    ref = db.reference("/Students")
+    
+    data = ref_data["Students"]
+    results = []
+    for key, value in data.items():
+        value["key"] = key
+        results.append(value)
+    
+    return results
+
+
 def version_updater(ref: db.reference):
     section = ref.path
     ref_data = ref.get()
@@ -286,6 +310,16 @@ def version_updater(ref: db.reference):
             return True
 
 
+def remove_student_info(email: str):
+    ref = db.reference("/Students")
+    items = ref.get()
+    for key, value in items.items():
+        if value["email"] == email:
+            ref.child(key).remove()
+            return True
+
+    return False
+
 
 # \\\\\\\\\\\\\\\\\\\\\\\\\\\
 #     Main code functions
@@ -333,7 +367,7 @@ def check_date(date: str) -> bool:
         return False
 
 
-def submit_student(fname, lname, email, events):
+def submit_student(fname, lname, email, events, grade: str, error_message, update: bool=False):
     global add_student_window, error_label_add_students
     numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
@@ -341,25 +375,27 @@ def submit_student(fname, lname, email, events):
         if lname != "":
             if email != "" and "@" in email and "tdsb.on.ca" in email:
                 if events != "" and all(char in numbers for char in events):
-                    if not save_student_info(fname, lname, email, events, DB_REFERENCE):
-                        error_label_add_students.config(text="Error adding student or student already exists.")
-                        return False
+                    if grade != "" and 12 >= int(grade) >= 9:
+                        if not save_student_info(fname, lname, email, events, grade, update):
+                            error_message.config(text="Error adding student or student already exists.")
+                            return False
 
+                        else:
+                            error_message.configure(text="")
+                            add_student_window.destroy()
+                            add_student_window = None
+                            return True
                     else:
-                        error_label_add_students.configure(text="")
-                        add_student_window.destroy()
-                        add_student_window = None
-                        main()
-                        return True
+                        error_message.configure(text="Grade must be either 9, 10, 11, or 12.")
 
                 else:
-                    error_label_add_students.configure(text="Amount of events must be entered.")
+                    error_message.configure(text="Amount of events must be entered.")
             else:
-                error_label_add_students.configure(text="Email must be filled and must be a tdsb email.")
+                error_message.configure(text="Email must be filled and must be a tdsb email.")
         else:
-            error_label_add_students.configure(text="Last name must be filled.")
+            error_message.configure(text="Last name must be filled.")
     else:    
-        error_label_add_students.configure(text="First name must be filled.")
+        error_message.configure(text="First name must be filled.")
 
 
 def add_student():
@@ -426,6 +462,19 @@ def add_student():
     events = tkinter.Entry(studentInputFrame)
     events.grid(row=3, column=1)
 
+    # --------------------
+    #   Grade of student
+    # --------------------
+    grade_label = tkinter.Label(
+        studentInputFrame,
+        text="Grade:",
+        font=("Comic Sans MS", 12, "bold")
+    )
+    grade_label.grid (row=4, column=0)
+
+    grade = tkinter.Entry(studentInputFrame)
+    grade.grid(row=4, column=1)
+
 
     # ---------------------------------
     #   Button for submitting student
@@ -433,9 +482,16 @@ def add_student():
     submit_button = tkinter.Button(
         studentInputFrame,
         text="Submit",
-        command=lambda: submit_student(fname.get(), lname.get(), email.get(), events.get())
+        command=lambda: main() if submit_student(
+            fname.get(), 
+            lname.get(), 
+            email.get(), 
+            events.get(), 
+            grade.get(), 
+            error_label_add_students
+        ) else False
     )
-    submit_button.grid(row=4, column=1)
+    submit_button.grid(row=5, column=1)
 
     # ---------------
     #   Error label
@@ -800,23 +856,12 @@ def view_events():
             display_event(None)
                 
 
-
     def display_event(event_id):
         if event_id is not None:
             text = cal.calevent_cget(event_id, "text")
             text = text.split("|")
         else:
-            text = [
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-                "",
-            ]
+            text = ["","","","","","","","",""]
 
         # -------------------------------------------
         #   Set up all labels according to the text
@@ -894,7 +939,7 @@ def view_events():
 
 
     def save():
-        if len(EVENTS) > 0:
+        if len(EVENTS) > 0 and cal.get_calevents(cal.selection_get()):
             if submit_event(
                 name=event_name_label.get(),
                 date=date_label.get(),
@@ -1151,10 +1196,224 @@ def view_events():
     view_events_window.mainloop()
 
 
+def view_students():
+    global window
+
+    window.destroy()
+
+    version_updater(db.reference("/Students"))
+
+    student_view_window = tkinter.Tk()
+
+
+    def show(student):
+        first_name_entry.delete(0, tkinter.END)
+        first_name_entry.insert(0, student["first name"].capitalize())
+
+        last_name_entry.delete(0, tkinter.END)
+        last_name_entry.insert(0, student["last name"].capitalize())
+
+        email_entry.delete(0, tkinter.END)
+        email_entry.insert(0, student["email"])
+
+        grade_entry.delete(0, tkinter.END)
+        grade_entry.insert(0, str(student["grade"]))
+
+        events_attended_entry.delete(0, tkinter.END)
+        events_attended_entry.insert(0, str(student["events"]))    
+
+
+    def save_students():
+        if save_student_info(
+            first_name_entry.get(), 
+            last_name_entry.get(), 
+            email_entry.get(), 
+            events_attended_entry.get(),
+            grade_entry.get(),
+            update_students=True, 
+        ):
+            view_students_error_message.configure(text="Student updated successfully!", fg="lime green")
+            view_students_error_message.after(9000, lambda: view_students_error_message.configure(text="", fg="red"))
+            refresh_list()
+            return True
+        
+        refresh_list()
+
+
+    def remove_student():
+        if email_entry.get() != "":
+            if remove_student_info(email_entry.get()):
+                refresh_list()
+                view_students_error_message.configure(text="Student removed successfully!", fg="lime green")
+                view_students_error_message.after(9000, lambda: view_students_error_message.configure(text="", fg="red"))
+                refresh_list()
+                return True
+            
+            else:
+                view_students_error_message.configure(text="Student not found!", fg="red")
+                view_students_error_message.after(9000, lambda: view_students_error_message.configure(text="", fg="red"))
+                refresh_list()
+                return False
+        else:
+            view_students_error_message.configure(text="Please select a student!", fg="red")
+            view_students_error_message.after(9000, lambda: view_students_error_message.configure(text="", fg="red"))
+            refresh_list()
+            return False
+        
+
+    def refresh_list():
+        # -----------------------------------
+        #   Add all students to scroll list
+        # -----------------------------------
+        for row, student in enumerate(get_all_students()):
+            student_text = f'{student["first name"].capitalize()} {student["last name"].capitalize()}'
+            student_text = student_text.center(58, " ")
+            student_text = student_text + f'Events attended: {student["events"]}  '
+
+            student_frame = ttk.Frame(scrollable_frame)
+            
+            student_label = ttk.Label(student_frame, text=student_text)
+            student_label.grid(row=0, column=0)
+            
+            student_button = ttk.Button(
+                student_frame, 
+                text="View",
+                command=lambda: show(student)
+            )
+            student_button.grid(row=0, column=1)
+
+            student_frame.grid(row=row, column=0, sticky="nsew")
+            
+
+    container = ttk.Frame(student_view_window)
+    canvas = tkinter.Canvas(container)
+    scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+    scrollable_frame = ttk.Frame(canvas)
+
+
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    refresh_list()
+
+
+    # -----------------
+    #   Details frame
+    # -----------------
+    student_details_frame = ttk.Frame(student_view_window)
+
+
+    # --------------
+    #   First name
+    # --------------
+    first_name = tkinter.Label(student_details_frame, text="First name:")
+    first_name.grid(row=0, column=0)
+    first_name_entry = tkinter.Entry(student_details_frame, width=50)
+    first_name_entry.grid(row=0, column=1)
+
+
+    # -------------
+    #   Last name
+    # -------------
+    last_name = tkinter.Label(student_details_frame, text="Last name:")
+    last_name.grid(row=1, column=0)
+    last_name_entry = tkinter.Entry(student_details_frame, width=50)
+    last_name_entry.grid(row=1, column=1)
+
+
+    # ---------
+    #   Email
+    # ---------
+    email = tkinter.Label(student_details_frame, text="Email:")
+    email.grid(row=2, column=0)
+    email_entry = tkinter.Entry(student_details_frame, width=50)
+    email_entry.grid(row=2, column=1)
+
+
+    # ---------
+    #   Grade
+    # ---------
+    grade = tkinter.Label(student_details_frame, text="Grade:")
+    grade.grid(row=3, column=0)
+    grade_entry = tkinter.Entry(student_details_frame, width=50)
+    grade_entry.grid(row=3, column=1)
+
+
+    # -----------------------------
+    #   Amount of events attended
+    # -----------------------------
+    events_attended = tkinter.Label(student_details_frame, text="Events attended:")
+    events_attended.grid(row=4, column=0)
+    events_attended_entry = tkinter.Entry(student_details_frame, width=50)
+    events_attended_entry.grid(row=4, column=1)
+
+    # ---------------
+    #   Save button
+    # ---------------
+    save_button = tkinter.Button(
+        student_details_frame,
+        text="Save",
+        command=save_students
+    )
+    save_button.grid(row=5, column=1, sticky="nsew")
+
+
+    # ----------------------
+    #   Schedule for event
+    # ----------------------
+    schedule_button = tkinter.Button(
+        student_details_frame,
+        text="Schedule",
+        command=lambda: True
+    )
+    schedule_button.grid(row=5, column=0, sticky="nsew")
+
+
+    # ------------------
+    #   Delete student
+    # ------------------
+    delete_button = tkinter.Button(
+        student_details_frame,
+        text="Delete",
+        command=remove_student
+    )
+    delete_button.grid(row=6, column=0, sticky="nsew")
+
+
+    # ------------------
+    #   Refresh button
+    # ------------------
+    refresh_button = tkinter.Button(
+        student_details_frame,
+        text="Refresh",
+        command=refresh_list
+    )
+    refresh_button.grid(row=6, column=1, sticky="nsew")
+
+
+
+    # -----------------
+    #   Error message
+    # -----------------
+    view_students_error_message = tkinter.Label(
+        student_details_frame, 
+        text="",
+        fg="red",
+        font=("comic sans", 14)
+    )
+    view_students_error_message.grid(row=90, column=0, columnspan=2)
+
+
+
+    container.grid(row=0, column=0)
+    student_details_frame.grid(row=0, column=1)
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+    student_view_window.mainloop()
+
 
 
 def main():
-    global window, WIN_WIDTH, WIN_HEIGHT, add_student_window, create_event_window, view_events_window
+    global window, WIN_WIDTH, WIN_HEIGHT, add_student_window, create_event_window, view_events_window, student_view_window
     if add_student_window != None:
         add_student_window.destroy()
         add_student_window = None
@@ -1166,6 +1425,10 @@ def main():
     if view_events_window != None:
         view_events_window.destroy()
         view_events_window = None
+    
+    if student_view_window != None:
+        student_view_window.destroy()
+        student_view_window = None
 
 
     window = tkinter.Tk()
@@ -1225,6 +1488,17 @@ def main():
     view_events_button.grid(row=0, column=2)
 
 
+    # ------------------------
+    #   View students button
+    # ------------------------
+    view_students_button = tkinter.Button(
+        button_frame,
+        text="View students",
+        command=view_students,
+    )
+    view_students_button.grid(row=0, column=3)
+
+
     # -------------------
     #   Start main loop
     # -------------------
@@ -1233,9 +1507,10 @@ def main():
 
 
 if __name__ == "__main__":
-    global add_student_window, create_event_window
+    global add_student_window, create_event_window, view_events_window, student_view_window
 
     create_event_window = None
     add_student_window = None
     view_events_window = None
+    student_view_window = None
     main()
