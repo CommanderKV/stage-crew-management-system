@@ -60,6 +60,7 @@ db format:
 import os
 from re import L
 import tkinter
+from turtle import update
 import firebase_admin
 from firebase_admin import credentials
 from firebase_admin import db
@@ -144,7 +145,7 @@ def get_students() -> list or None:
         return students
 
 
-def save_event_info(name: str, date: str, start_time: str, end_time: str, sound: bool, mics: bool, lights: bool, projector: bool, teacher_email: str) -> bool:
+def save_event_info(name: str, date: str, start_time: str, end_time: str, sound: bool, mics: bool, lights: bool, projector: bool, teacher_email: str, update_event: bool=False) -> bool:
     # -------------------------
     #    Check if directory 
     #   exists if not make it
@@ -184,13 +185,24 @@ def save_event_info(name: str, date: str, start_time: str, end_time: str, sound:
     try:
         items = ref.get()
         if items is not None:
-            for item in items:
-                if items[item]["name"] == name:
+            for key, item in items.items():
+                past_item = item.copy()
+                if item["name"].lower() == name.lower():
+                    if update_event:
+                        for key2, value in data.items():
+                            if key2 not in item.keys():
+                                items[key][key2] = value
+                            
+                            if value != items[key][key2]:
+                                items[key][key2] = value
+                        ref = db.reference("/Events/"+key)
+                        ref.transaction(lambda value2: items[key] if past_item == value2 else value2)
+                        return True
+                    
+                    else:
+                        print("Update event not active canceling push")
                         return False
 
-                else:
-                    ref.push().set(data)
-                    return True
         else:
             ref.push().set(data)
             return True
@@ -455,44 +467,43 @@ def add_student():
     add_student_window.mainloop()
 
 
-def submit_event(name: str, date: str, time: str, end_time: str, teacher_contact:str, sound: bool, mics: bool, lights: bool, projector: bool) -> bool:
-    global crate_event_error_message
+def submit_event(name: str, date: str, time: str, end_time: str, teacher_contact:str, sound: bool, mics: bool, lights: bool, projector: bool, error_box, update_event: bool=False) -> bool:
     if name != "" and name != "Event name" and name.replace(" ", "") != "":
         if date != "" and date != "yyyy-mm-dd" and date.replace(" ", "") != "" and len(date) == 10 and check_date(date):
             if time != "" and time != "hh:mm" and time.replace(" ", "") != "" and len(time) == 5 and check_time(time):
                 if end_time != "" and end_time != "hh:mm" and end_time.replace(" ", "") != "" and len(end_time) == 5 and check_time(end_time):
-                    if teacher_contact != "" and teacher_contact.replace(" ", "") != "" and "tdsb.on.ca" in teacher_contact and "@" in teacher_contact and len(teacher_contact) >= 20:
-                        crate_event_error_message.configure(text="")
-                        if not save_event_info(name, date, time, end_time, sound, mics, lights, projector, teacher_contact):
-                            crate_event_error_message.configure(text="Error uploading event or event already exists.")
+                    if teacher_contact != "" and teacher_contact.replace(" ", "") != "" and "tdsb.on.ca" in teacher_contact and "@" in teacher_contact and len(teacher_contact) >= 15:
+                        error_box.configure(text="")
+                        if not save_event_info(name, date, time, end_time, sound, mics, lights, projector, teacher_contact, update_event=update_event):
+                            error_box.configure(text="Error uploading event or event already exists.")
                             return False
 
                         else:
-                            main()
                             return True
                     
                     else:
-                        crate_event_error_message.configure(text="Teacher contact must be filled.")
+                        error_box.configure(text="Teacher contact must be filled.")
                         return False
 
                 else:
-                    crate_event_error_message.configure(text="End time must be filled.")
+                    error_box.configure(text="End time must be filled.")
                     return False
 
             else:
-                crate_event_error_message.configure(text="Start time must be filled.")
+                error_box.configure(text="Start time must be filled.")
                 return False
 
         else:
-            crate_event_error_message.configure(text="Date must be filled.")
+            error_box.configure(text="Date must be filled.")
             return False
+
     else:
-        crate_event_error_message.configure(text="Event name must be filled.")
+        error_box.configure(text="Event name must be filled.")
         return False
 
 
 def create_event():
-    global window, create_event_window, crate_event_error_message
+    global window, create_event_window
 
     # -----------------------
     #   Destroy main window 
@@ -657,10 +668,11 @@ def create_event():
     # -----------------
     #   Submit button
     # -----------------
+    create_event_error_message = None
     submit_button = tkinter.Button(
         text_input_frame,
         text="Submit",
-        command=lambda: submit_event(
+        command=lambda: main() if submit_event(
             name.get(), 
             date.get(), 
             time.get(), 
@@ -669,8 +681,9 @@ def create_event():
             True if soundvar.get() == 1 else False,
             True if micsvar.get() == 1 else False, 
             True if lightsvar.get() == 1 else False, 
-            True if projectorvar.get() == 1 else False
-        )
+            True if projectorvar.get() == 1 else False,
+            create_event_error_message
+        ) else False
     )
     submit_button.grid(row=9, column=1)
 
@@ -783,11 +796,27 @@ def view_events():
                 EVENTS = [[event, 0] for event in events]
                 EVENTS[0][1] = 1
                 display_event(EVENTS[0][0])
+        else:
+            display_event(None)
+                
 
 
     def display_event(event_id):
-        text = cal.calevent_cget(event_id, "text")
-        text = text.split("|")
+        if event_id is not None:
+            text = cal.calevent_cget(event_id, "text")
+            text = text.split("|")
+        else:
+            text = [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            ]
 
         # -------------------------------------------
         #   Set up all labels according to the text
@@ -800,17 +829,17 @@ def view_events():
             (teacher_contact_label, text[8])
         ]
 
-        for entry, text in entrys:
-            entry.delete(0, tkinter.END)
-            entry.insert(0, text)
-
-
         checks = [
             (mics_checkbutton_value, text[4]),
             (lights_checkbutton_value, text[5]),
             (projector_checkbutton_value, text[6]),
             (sound_checkbutton_value, text[7])
         ]
+
+        for entry, text in entrys:
+            entry.delete(0, tkinter.END)
+            entry.insert(0, text)
+
 
         for check, text in checks:
             if text == "True":
@@ -865,39 +894,25 @@ def view_events():
 
 
     def save():
-        def update(value):
-            data = {
-                "name": 0,
-                "date": 1,
-                "start time": 2,
-                "end time": 3,
-                "mics": 4,
-                "lights": 5,
-                "projector": 6,
-                "sound": 7,
-                "teacher contact": 8
-            }
-            for key, value2 in data.items():
-                value[key] = text[value2]
-            
-            return value
-
-
         if len(EVENTS) > 0:
-            event_id = None
-            for event in EVENTS:
-                if event[1] == 1:
-                    event_id = event[0]
-                    break
-            
-            text = cal.calevent_cget(event_id, "text").split("|")
-            key = text[-1]
+            if submit_event(
+                name=event_name_label.get(),
+                date=date_label.get(),
+                time=start_time_label.get(),
+                end_time=end_time_label.get(),
+                teacher_contact=teacher_contact_label.get(),
+                sound=True if sound_checkbutton_value.get() == 1 else False,
+                mics=True if mics_checkbutton_value.get() == 1 else False,
+                lights=True if lights_checkbutton_value.get() == 1 else False,
+                projector=True if projector_checkbutton_value.get() == 1 else False,
+                error_box=error_message, 
+                update_event=True
+            ):
+                error_message.configure(text="Event updated", fg="lime green")
+                error_message.after(9000, lambda: error_message.configure(text="", fg="red"))
 
-            db.reference("/Events/"+key).transaction(update)
-            error_message.configure(text="")
-        
         else:
-            error_message.configure(text="No event has been scheduled for this day, \nif you would like to create one go to the create event menu.")
+            error_message.configure(text="No event selected", fg="red")
 
 
 
@@ -906,7 +921,6 @@ def view_events():
     # -------------------
     cal = CustomCalendar(view_events_window, selectmode="day")
     cal.bind("<<CalendarSelected>>", cal_day_selected)
-    cal_day_selected()
     update_displayed_events(cal)
 
 
@@ -1113,7 +1127,7 @@ def view_events():
     # -----------------------
     #   Error message label
     # -----------------------
-    error_message = tkinter.Label(view_events_window, text="", fg="red", font=("comic sans", 12))
+    error_message = tkinter.Label(view_events_window, text="", fg="red", font=("comic sans", 14))
     error_message.grid(row=1, column=0, columnspan=4)
 
 
