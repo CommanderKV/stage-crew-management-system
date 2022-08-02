@@ -455,7 +455,7 @@ def add_student():
     add_student_window.mainloop()
 
 
-def submit_event(name: str, date: str, time: str, end_time: str, teacher_contact:str, sound: bool, mics: bool, lights: bool, projector: bool, ref: db.reference) -> bool:
+def submit_event(name: str, date: str, time: str, end_time: str, teacher_contact:str, sound: bool, mics: bool, lights: bool, projector: bool) -> bool:
     global crate_event_error_message
     if name != "" and name != "Event name" and name.replace(" ", "") != "":
         if date != "" and date != "yyyy-mm-dd" and date.replace(" ", "") != "" and len(date) == 10 and check_date(date):
@@ -463,7 +463,7 @@ def submit_event(name: str, date: str, time: str, end_time: str, teacher_contact
                 if end_time != "" and end_time != "hh:mm" and end_time.replace(" ", "") != "" and len(end_time) == 5 and check_time(end_time):
                     if teacher_contact != "" and teacher_contact.replace(" ", "") != "" and "tdsb.on.ca" in teacher_contact and "@" in teacher_contact and len(teacher_contact) >= 20:
                         crate_event_error_message.configure(text="")
-                        if not save_event_info(name, date, time, end_time, sound, mics, lights, projector, teacher_contact, ref):
+                        if not save_event_info(name, date, time, end_time, sound, mics, lights, projector, teacher_contact):
                             crate_event_error_message.configure(text="Error uploading event or event already exists.")
                             return False
 
@@ -669,8 +669,7 @@ def create_event():
             True if soundvar.get() == 1 else False,
             True if micsvar.get() == 1 else False, 
             True if lightsvar.get() == 1 else False, 
-            True if projectorvar.get() == 1 else False,
-            DB_REFERENCE
+            True if projectorvar.get() == 1 else False
         )
     )
     submit_button.grid(row=9, column=1)
@@ -784,7 +783,7 @@ def view_events():
                 EVENTS = [[event, 0] for event in events]
                 EVENTS[0][1] = 1
                 display_event(EVENTS[0][0])
-            
+
 
     def display_event(event_id):
         text = cal.calevent_cget(event_id, "text")
@@ -802,9 +801,8 @@ def view_events():
         ]
 
         for entry, text in entrys:
-            entry.configure(state="normal")
+            entry.delete(0, tkinter.END)
             entry.insert(0, text)
-            entry.configure(state="disabled")
 
 
         checks = [
@@ -823,6 +821,7 @@ def view_events():
 
 
     def next_event():
+        global EVENTS
         if len(EVENTS) > 0:
             starting_pos = None
             for pos, event in enumerate(EVENTS):
@@ -834,17 +833,20 @@ def view_events():
             
             if starting_pos != None:
                 pos = starting_pos
-                while pos < len(EVENTS):
-                    pos += 1
-                    if EVENTS[pos][1] == 0:
-                        display_event(EVENTS[pos][0])
-                        break
+                pos += 1
+                if pos > len(EVENTS)-1:
+                    pos = 0
+
+                if EVENTS[pos][1] == 0:
+                    display_event(EVENTS[pos][0])
+                    EVENTS[pos][1] = 1
 
 
     def back_event():
+        global EVENTS
         if len(EVENTS) > 0:
             starting_pos = None
-            for pos, event in enumerate(EVENTS.reverse()):
+            for pos, event in enumerate(EVENTS):
                 if event[1] == 1:
                     starting_pos = pos
                     break
@@ -853,11 +855,13 @@ def view_events():
 
             if starting_pos != None:
                 pos = starting_pos
-                while pos > len(EVENTS.reverse()):
-                    pos -= 1
-                    if EVENTS[pos][1] == 0:
-                        display_event(EVENTS[pos][0])
-                        break
+                pos -= 1
+                if pos < 0:
+                    pos = len(EVENTS)-1
+                    
+                if EVENTS[pos][1] == 0:
+                    display_event(EVENTS[pos][0])
+                    EVENTS[pos][1] = 1
 
 
     def save():
@@ -878,6 +882,7 @@ def view_events():
             
             return value
 
+
         if len(EVENTS) > 0:
             event_id = None
             for event in EVENTS:
@@ -889,6 +894,10 @@ def view_events():
             key = text[-1]
 
             db.reference("/Events/"+key).transaction(update)
+            error_message.configure(text="")
+        
+        else:
+            error_message.configure(text="No event has been scheduled for this day, \nif you would like to create one go to the create event menu.")
 
 
 
@@ -929,7 +938,6 @@ def view_events():
     #   Event name entry label
     # --------------------------
     event_name_label = tkinter.Entry(event_details_frame)
-    event_name_label.config(state=tkinter.DISABLED)
     event_name_label.grid(row=1, column=1)
 
 
@@ -944,7 +952,6 @@ def view_events():
     #   Date entry label
     # --------------------
     date_label = tkinter.Entry(event_details_frame)
-    date_label.config(state=tkinter.DISABLED)
     date_label.grid(row=2, column=1)
 
 
@@ -959,7 +966,6 @@ def view_events():
     #   Start time entry label
     # --------------------------
     start_time_label = tkinter.Entry(event_details_frame)
-    start_time_label.config(state=tkinter.DISABLED)
     start_time_label.grid(row=3, column=1)
 
 
@@ -974,7 +980,6 @@ def view_events():
     #   End time entry label
     # ------------------------
     end_time_label = tkinter.Entry(event_details_frame)
-    end_time_label.config(state=tkinter.DISABLED)
     end_time_label.grid(row=4, column=1)
 
 
@@ -988,8 +993,7 @@ def view_events():
     # -------------------------------
     #   Teacher contact entry label
     # -------------------------------
-    teacher_contact_label = tkinter.Entry(event_details_frame)
-    teacher_contact_label.config(state=tkinter.DISABLED)
+    teacher_contact_label = tkinter.Entry(event_details_frame, width=40)
     teacher_contact_label.grid(row=5, column=1)
 
 
@@ -1005,8 +1009,7 @@ def view_events():
     # ---------------------------
     sound_checkbutton_value = tkinter.IntVar()
     sound_checkbutton = tkinter.Checkbutton(
-        event_details_frame, 
-        state="disabled", 
+        event_details_frame,
         variable=sound_checkbutton_value, 
         onvalue=1, 
         offvalue=0
@@ -1027,7 +1030,6 @@ def view_events():
     mics_checkbutton_value = tkinter.IntVar()
     mics_checkbutton = tkinter.Checkbutton(
         event_details_frame,
-        state="disabled",
         variable=mics_checkbutton_value,
         onvalue=1,
         offvalue=0
@@ -1048,7 +1050,6 @@ def view_events():
     lights_checkbutton_value = tkinter.IntVar()
     lights_checkbutton = tkinter.Checkbutton(
         event_details_frame,
-        state="disabled",
         variable=lights_checkbutton_value,
         onvalue=1,
         offvalue=0
@@ -1069,7 +1070,6 @@ def view_events():
     projector_checkbutton_value = tkinter.IntVar()
     projector_checkbutton = tkinter.Checkbutton(
         event_details_frame,
-        state="disabled",
         variable=projector_checkbutton_value,
         onvalue=1,
         offvalue=0
@@ -1085,7 +1085,7 @@ def view_events():
         text="Next Event",
         command=next_event
     )
-    next_button.grid(row=10, column=1)
+    next_button.grid(row=10, column=1, sticky="nsew")
 
 
     # ----------------------
@@ -1096,20 +1096,25 @@ def view_events():
         text="Previous event",
         command=back_event
     )
-    back_button.grid(row=10, column=0)
+    back_button.grid(row=10, column=0, sticky="nsew")
 
 
     # ---------------
     #   Save button
     # ---------------
-    save_button = tkinter
+    save_button = tkinter.Button(
+        event_details_frame,
+        text="Save",
+        command=save
+    )
+    save_button.grid(row=11, column=0, columnspan=2, sticky="nsew")
 
 
     # -----------------------
     #   Error message label
     # -----------------------
-    error_message = tkinter.Label(view_events_window, text="")
-    error_message.grid(row=1, column=0, columnspan=2)
+    error_message = tkinter.Label(view_events_window, text="", fg="red", font=("comic sans", 12))
+    error_message.grid(row=1, column=0, columnspan=4)
 
 
     # ---------------
@@ -1118,9 +1123,10 @@ def view_events():
     back_button_main = tkinter.Button(
         view_events_window,
         text="Back",
-        command=lambda: main()
+        command=lambda: main(),
+        font=("Comic sans", 14)
     )
-    back_button_main.grid(row=5, column=0, columnspan=3)
+    back_button_main.grid(row=5, column=0, columnspan=4, sticky="nsew")
 
 
     # -------------------------------
