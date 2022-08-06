@@ -403,7 +403,7 @@ def add_student():
     window.destroy ()
 
     add_student_window = tkinter.Tk()
-    add_student_window.geometry("400x200")
+    #add_student_window.geometry("400x200")
 
 
     # ------------------------
@@ -491,7 +491,8 @@ def add_student():
             error_label_add_students
         ) else False
     )
-    submit_button.grid(row=5, column=1)
+    submit_button.grid(row=5, column=0, columnspan=2, sticky="nsew")
+
 
     # ---------------
     #   Error label
@@ -513,7 +514,7 @@ def add_student():
         text="Back",
         command=lambda: main()
     )
-    back.grid(row=2, column=0)
+    back.grid(row=2, column=0, sticky="nsew")
 
 
     # ----------------
@@ -568,7 +569,7 @@ def create_event():
     window.destroy()
 
     create_event_window = tkinter.Tk()
-    create_event_window.geometry("800x540")
+    # create_event_window.geometry("800x540")
 
     mainframe = tkinter.Frame(create_event_window)
 
@@ -599,7 +600,7 @@ def create_event():
     )
     name_label.grid(row=0, column=0)
 
-    name = tkinter.Entry(text_input_frame)
+    name = tkinter.Entry(text_input_frame, width=40)
     name.insert(0, "Event name")
     name.grid(row=0, column=1)
 
@@ -614,7 +615,7 @@ def create_event():
     )
     date_label.grid(row=1, column=0)
 
-    date = tkinter.Entry(text_input_frame)
+    date = tkinter.Entry(text_input_frame, width=40)
     date.insert(0, "YYYY-MM-DD")
     date.grid(row=1, column=1)
 
@@ -629,7 +630,7 @@ def create_event():
     )
     time_label.grid(row=2, column=0)
 
-    time = tkinter.Entry(text_input_frame)
+    time = tkinter.Entry(text_input_frame, width=40)
     time.insert(0, "HH:MM")
     time.grid(row=2, column=1)
 
@@ -644,7 +645,7 @@ def create_event():
     )
     end_time_label.grid(row=3, column=0)
 
-    end_time = tkinter.Entry(text_input_frame)
+    end_time = tkinter.Entry(text_input_frame, width=40)
     end_time.insert(0, "HH:MM")
     end_time.grid(row=3, column=1)
 
@@ -659,7 +660,7 @@ def create_event():
     )
     teacher_contact_label.grid(row=4, column=0)
 
-    teacher_contact = tkinter.Entry(text_input_frame)
+    teacher_contact = tkinter.Entry(text_input_frame, width=40)
     teacher_contact.grid(row=4, column=1)
 
 
@@ -724,7 +725,6 @@ def create_event():
     # -----------------
     #   Submit button
     # -----------------
-    create_event_error_message = None
     submit_button = tkinter.Button(
         text_input_frame,
         text="Submit",
@@ -738,7 +738,7 @@ def create_event():
             True if micsvar.get() == 1 else False, 
             True if lightsvar.get() == 1 else False, 
             True if projectorvar.get() == 1 else False,
-            create_event_error_message
+            create_event_error_message, 
         ) else False
     )
     submit_button.grid(row=9, column=1)
@@ -747,24 +747,24 @@ def create_event():
     # -----------------
     #   Error message
     # -----------------
-    crate_event_error_message = tkinter.Label(
+    create_event_error_message = tkinter.Label(
         text_input_frame,
         text="",
         font=("Comic Sans MS", text_font_size, "bold"),
         fg="red"
     )
-    crate_event_error_message.grid(row=10, column=1)
+    create_event_error_message.grid(row=10, column=0, columnspan=2)
 
 
     # ---------------
     #   Back button
     # ---------------
     back = tkinter.Button(
-        mainframe,
+        create_event_window,
         text="Back",
         command=lambda: main()
     )
-    back.grid(row=2, column=0)
+    back.grid(row=1, column=0, columnspan=4, sticky="nsew")
 
 
     # ----------
@@ -773,9 +773,16 @@ def create_event():
     spacer = tkinter.Label(
         create_event_window,
         text="",
-        width=10
+        width=2
     )
     spacer.grid(row=0, column=0)
+
+    spacer2 = tkinter.Label(
+        create_event_window,
+        text="",
+        width=2
+    )
+    spacer2.grid(row=0, column=3)
 
 
     # -------------------
@@ -787,8 +794,10 @@ def create_event():
 
 
 def view_events():
-    global window, view_events_window, EVENTS
+    global window, view_events_window, EVENTS, current_event
     window.destroy()
+
+    current_event = 0
 
     # ------------------------------------
     #   Get all events from the calendar
@@ -809,6 +818,8 @@ def view_events():
                 cal.calevent_create(time, details, "Message")
         
         cal.tag_config("Message", background="blue", foreground="black")
+
+        
 
 
     class CustomCalendar(Calendar):
@@ -854,7 +865,7 @@ def view_events():
                 display_event(EVENTS[0][0])
         else:
             display_event(None)
-                
+
 
     def display_event(event_id):
         if event_id is not None:
@@ -895,7 +906,7 @@ def view_events():
 
 
     def next_event():
-        global EVENTS
+        global EVENTS, current_event
         if len(EVENTS) > 0:
             starting_pos = None
             for pos, event in enumerate(EVENTS):
@@ -910,10 +921,12 @@ def view_events():
                 pos += 1
                 if pos > len(EVENTS)-1:
                     pos = 0
+                    current_event -= 1
 
                 if EVENTS[pos][1] == 0:
                     display_event(EVENTS[pos][0])
                     EVENTS[pos][1] = 1
+                    current_event += 1
 
 
     def back_event():
@@ -930,12 +943,15 @@ def view_events():
             if starting_pos != None:
                 pos = starting_pos
                 pos -= 1
+                current_event = pos
                 if pos < 0:
                     pos = len(EVENTS)-1
+                    current_event = len(EVENTS)-1
                     
                 if EVENTS[pos][1] == 0:
                     display_event(EVENTS[pos][0])
                     EVENTS[pos][1] = 1
+                    
 
 
     def save():
@@ -966,6 +982,14 @@ def view_events():
     # -------------------
     cal = CustomCalendar(view_events_window, selectmode="day")
     cal.bind("<<CalendarSelected>>", cal_day_selected)
+
+
+    # ---------------------------
+    #   Calender events counter
+    # ---------------------------
+    event_count_label = tkinter.Label(view_events_window, text="Events: 0/0")
+    event_count_label.grid(row=1, column=0)
+
     update_displayed_events(cal)
 
 
@@ -1173,7 +1197,7 @@ def view_events():
     #   Error message label
     # -----------------------
     error_message = tkinter.Label(view_events_window, text="", fg="red", font=("comic sans", 14))
-    error_message.grid(row=1, column=0, columnspan=4)
+    error_message.grid(row=3, column=0, columnspan=4)
 
 
     # ---------------
@@ -1182,8 +1206,7 @@ def view_events():
     back_button_main = tkinter.Button(
         view_events_window,
         text="Back",
-        command=lambda: main(),
-        font=("Comic sans", 14)
+        command=lambda: main()
     )
     back_button_main.grid(row=5, column=0, columnspan=4, sticky="nsew")
 
@@ -1266,24 +1289,26 @@ def view_students():
         #   Add all students to scroll list
         # -----------------------------------
         for row, student in enumerate(get_all_students()):
-            student_text = f'{student["first name"].capitalize()} {student["last name"].capitalize()}'
-            student_text = student_text.center(58, " ")
-            student_text = student_text + f'Events attended: {student["events"]}  '
+            student_name = f'{student["first name"].capitalize()} {student["last name"].capitalize()}'
+            student_events = f'Events attended: {student["events"]}'
 
             student_frame = ttk.Frame(scrollable_frame)
             
-            student_label = ttk.Label(student_frame, text=student_text)
+            student_label = ttk.Label(student_frame, text=student_name, width=30, background="light gray" if row%2 != 0 else "white")
             student_label.grid(row=0, column=0)
+
+            student_label_2 = ttk.Label(student_frame, text=student_events, width=18, background="light gray" if row%2 != 0 else "white")
+            student_label_2.grid(row=0, column=1)
             
             student_button = ttk.Button(
                 student_frame, 
-                text="View",
+                text="Remove",
                 command=lambda: show(student)
             )
-            student_button.grid(row=0, column=1)
+            student_button.grid(row=0, column=2)
 
             student_frame.grid(row=row, column=0, sticky="nsew")
-            
+
 
     container = ttk.Frame(student_view_window)
     canvas = tkinter.Canvas(container)
