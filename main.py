@@ -528,7 +528,7 @@ def submit_event(name: str, date: str, time: str, end_time: str, teacher_contact
     if name != "" and name != "Event name" and name.replace(" ", "") != "":
         if date != "" and date != "yyyy-mm-dd" and date.replace(" ", "") != "" and len(date) == 10 and check_date(date):
             if time != "" and time != "hh:mm" and time.replace(" ", "") != "" and len(time) == 5 and check_time(time):
-                if end_time != "" and end_time != "hh:mm" and end_time.replace(" ", "") != "" and len(end_time) == 5 and check_time(end_time):
+                if end_time != "" and end_time != "hh:mm" and len(end_time) == 5 and check_time(end_time):
                     if teacher_contact != "" and teacher_contact.replace(" ", "") != "" and "tdsb.on.ca" in teacher_contact and "@" in teacher_contact and len(teacher_contact) >= 15:
                         error_box.configure(text="")
                         if not save_event_info(name, date, time, end_time, sound, mics, lights, projector, teacher_contact, update_event=update_event):
@@ -819,7 +819,7 @@ def view_events():
         
         cal.tag_config("Message", background="blue", foreground="black")
 
-        
+
 
 
     class CustomCalendar(Calendar):
@@ -904,6 +904,8 @@ def view_events():
             else:
                 check.set(0)
 
+        event_count_label.config(text=f"Event {current_event}/{len(EVENTS)}")
+
 
     def next_event():
         global EVENTS, current_event
@@ -921,16 +923,16 @@ def view_events():
                 pos += 1
                 if pos > len(EVENTS)-1:
                     pos = 0
-                    current_event -= 1
+                    current_event = 0
 
                 if EVENTS[pos][1] == 0:
+                    current_event += 1
                     display_event(EVENTS[pos][0])
                     EVENTS[pos][1] = 1
-                    current_event += 1
 
 
     def back_event():
-        global EVENTS
+        global EVENTS, current_event
         if len(EVENTS) > 0:
             starting_pos = None
             for pos, event in enumerate(EVENTS):
@@ -943,15 +945,15 @@ def view_events():
             if starting_pos != None:
                 pos = starting_pos
                 pos -= 1
-                current_event = pos
                 if pos < 0:
                     pos = len(EVENTS)-1
                     current_event = len(EVENTS)-1
                     
                 if EVENTS[pos][1] == 0:
+                    current_event += 1
                     display_event(EVENTS[pos][0])
                     EVENTS[pos][1] = 1
-                    
+                    current_event += 1
 
 
     def save():
