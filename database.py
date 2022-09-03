@@ -60,7 +60,8 @@ class Database:
         Returns:
             dictionary: database data
         """
-        return self.db.get()
+        data = self.db.get()
+        return data if data != None else {}
 
 
     def update_db(self, data: dict) -> bool:

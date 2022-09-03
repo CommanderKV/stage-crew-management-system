@@ -8,7 +8,6 @@ import json
 def main():
     global EVENTS, inputs
     events_connection = Events()
-    current_event = 0
 
 
     class CustomCalendar(Calendar):
@@ -40,6 +39,11 @@ def main():
             return self._date.month, self._date.year
 
 
+    def back():
+        view_events_window
+        raise Exception("Back")
+
+
     def update_displayed_events(cal: CustomCalendar):
         # ------------------------------------------
         #   Add all received events to the calendar
@@ -59,15 +63,159 @@ def main():
                     if events[month][event][term].split("-")[0] == str(displayed_year):
                         time = datetime.strptime(events[month][event][term], "%Y-%m-%d")
                         details = events[month][event]
+                        details["temporary id"] = event
                         cal.calevent_create(time, details, "Message")
         
         cal.tag_config("Message", background="orange", foreground="black")
+
+
+    def save():
+        """
+        Save / update the event
+        """
+        global EVENTS
+
+        def is_number(string: str) -> bool:
+            numbers = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+            for char in string:
+                if char not in numbers:
+                    return False
+
+            return True
+
+
+        for key in events_connection.template.keys():
+            if key != "version":
+                label = inputs[key][0].cget("text")
+
+                if str(events_connection.template[key]).upper() == "TRUE OR FALSE":
+                    entry = inputs[key][2].get()
+
+                else:
+                    entry = inputs[key][1].get()
+
+                    if entry == "":
+                        # entry is empty
+                        error_message.config(text="Fill in all fields", fg="red")
+                        break
+
+                    value = str(events_connection.template[key]).upper()
+                    if str(entry).upper() == str(value).upper():
+                        # entry is same as default
+                        error_message.config(text="Enter a different value for {}".format(label), fg="red")
+                        break
+
+
+                    elif "TIME" in str(label).upper():
+                        if len(entry) != 5:
+                            # entry is not a time
+                            error_message.config(text="Enter a valid time for {}".format(label), fg="red")
+                            break
+
+                        elif entry[2] != ":":
+                            # entry is not a time
+                            error_message.config(text="Enter a valid time for {}".format(label), fg="red")
+                            break
+
+                        elif is_number(entry[0:2]) == False or is_number(entry[3:5]) == False:
+                            # entry is not a time
+                            error_message.config(text="Enter a valid time for {}".format(label), fg="red")
+                            break
+
+
+                    elif "DATE" in str(label).upper():
+                        if len(entry) != 10:
+                            # entry is not a date
+                            error_message.config(text="Enter a valid date for {} format: yyyy-mm-dd".format(label), fg="red")
+                            break
+
+                        elif entry[4] != "-" or entry[7] != "-":
+                            # entry is not a date
+                            error_message.config(text="Enter a valid date for {} format: yyyy-mm-dd".format(label), fg="red")
+                            break
+
+                        elif is_number(entry[0:4]) == False or is_number(entry[5:7]) == False or is_number(entry[8:10]) == False:
+                            # entry is not a date
+                            error_message.config(text="Enter a valid date for {} format: yyyy-mm-dd".format(label), fg="red")
+                            break
+
+                        elif datetime.strptime(entry, "%Y-%m-%d") < datetime.now():
+                            # entry is not a date
+                            error_message.config(text="{} must be in the future".format(label), fg="red")
+                            break
+
+                    
+                    elif "contact" in label:
+                        email = entry.replace(" ", "")
+                        if "@" not in email:
+                            # entry is not an email
+                            error_message.config(text="Enter a valid email for {}".format(label), fg="red")
+                            break
+
+                        elif "." not in email:
+                            # entry is not an email
+                            error_message.config(text="Enter a valid email for {}".format(label), fg="red")
+                            break
+
+                        elif "tdsb.on.ca" not in email:
+                            # entry is not an email
+                            error_message.config(text="Enter a valid email for {}".format(label), fg="red")
+                            break
+
+                        elif len(email) < 15:
+                            # entry is not an email
+                            error_message.config(text="Enter a valid email for {}".format(label), fg="red")
+                            break
+
+
+        if error_message["text"] == "":
+            event = {}
+            for key in inputs:
+                if key != "version":
+                    if str(events_connection.template[key]).upper() == "TRUE OR FALSE":
+                        event[key] = inputs[key][2].get()
+
+                    else:
+                        event[key] = inputs[key][1].get()
+            
+            event["version"] = events_connection.template["version"]
+
+
+            # -------------------------------------------------------------------------
+            #   If there are no errors then we will find the database id of the event
+            #   then we will edit that event if there is an event selected otherwise 
+            #                       we will create a new one 
+            # -------------------------------------------------------------------------
+            if cal.get_calevents(cal.get_date()):
+                for events in EVENTS:
+                    if events[1] == 1:
+                        event_database_id = cal.calevent_cget(events[0], "text")["temporary id"]
+
+                if events_connection.edit_event(event_database_id, event):
+                    back()
+                
+                else:
+                    error_message.config(text="Error adding event", fg="red")
+            
+            else:
+                if events_connection.add_event(event):
+                    back()
+                
+                else:
+                    error_message.config(text="Error adding event", fg="red")
+        
+        else:
+            error_message.after(9000, lambda: error_message.config(text="", fg="black"))
 
 
     view_events_window = tkinter.Tk()
     EVENTS = [0, 1]
 
     def cal_day_selected(_=None):
+        """
+        Displays the selected day and 
+        updates the events in the EVENTS list
+        """
         global EVENTS
         if cal.get_calevents(cal.selection_get()):
             events = cal.get_calevents(cal.selection_get())
@@ -80,7 +228,15 @@ def main():
             display_event(None)
 
 
-    def display_event(event_id):
+    def display_event(event_id: int):
+        """
+        Used to display a specific event
+
+        Args:
+            event_id (int): event_id according to tkcalander
+        """
+
+
         global inputs
 
         if event_id is not None:
@@ -99,11 +255,23 @@ def main():
         else:
             event = None
 
-        event_count_label.config(text=f"Event {current_event}/{len(EVENTS)}")
+            template = events_connection.get_event_struct()
+
+            for key in inputs:
+                values = inputs[key]
+                if len(values) == 3:
+                    values[2].set(False)
+                
+                else:
+                    values[1].delete(0, tkinter.END)
+                    values[1].insert(0, template[key])
 
 
     def next_event():
-        global EVENTS, current_event
+        """
+        Used to switch up which event is being displayed
+        """
+        global EVENTS
         if len(EVENTS) > 0:
             starting_pos = None
             for pos, event in enumerate(EVENTS):
@@ -118,16 +286,17 @@ def main():
                 pos += 1
                 if pos > len(EVENTS)-1:
                     pos = 0
-                    current_event = 0
 
                 if EVENTS[pos][1] == 0:
-                    current_event += 1
                     display_event(EVENTS[pos][0])
                     EVENTS[pos][1] = 1
 
 
     def back_event():
-        global EVENTS, current_event
+        """
+        Used to switch up which event is being displayed
+        """
+        global EVENTS
         if len(EVENTS) > 0:
             starting_pos = None
             for pos, event in enumerate(EVENTS):
@@ -142,50 +311,24 @@ def main():
                 pos -= 1
                 if pos < 0:
                     pos = len(EVENTS)-1
-                    current_event = len(EVENTS)-1
-                    
+
                 if EVENTS[pos][1] == 0:
-                    current_event += 1
                     display_event(EVENTS[pos][0])
                     EVENTS[pos][1] = 1
-                    current_event += 1
-
-
-    def save():
-        if len(EVENTS) > 0 and cal.get_calevents(cal.selection_get()):
-            if submit_event(
-                name=event_name_label.get(),
-                date=date_label.get(),
-                time=start_time_label.get(),
-                end_time=end_time_label.get(),
-                teacher_contact=teacher_contact_label.get(),
-                sound=True if sound_checkbutton_value.get() == 1 else False,
-                mics=True if mics_checkbutton_value.get() == 1 else False,
-                lights=True if lights_checkbutton_value.get() == 1 else False,
-                projector=True if projector_checkbutton_value.get() == 1 else False,
-                error_box=error_message, 
-                update_event=True
-            ):
-                error_message.configure(text="Event updated", fg="lime green")
-                error_message.after(9000, lambda: error_message.configure(text="", fg="red"))
-
-        else:
-            error_message.configure(text="No event selected", fg="red")
 
 
 
     # -------------------
     #   Custom calendar
     # -------------------
-    cal = CustomCalendar(view_events_window, selectmode="day")
+    cal = CustomCalendar(
+        view_events_window, 
+        selectmode="day",
+        weekenddays=[1, 7],
+        showweeknumbers=False, 
+        firstweekday="sunday"
+    )
     cal.bind("<<CalendarSelected>>", cal_day_selected)
-
-
-    # ---------------------------
-    #   Calender events counter
-    # ---------------------------
-    event_count_label = tkinter.Label(view_events_window, text="Events: 0/0")
-    event_count_label.grid(row=1, column=0)
 
     update_displayed_events(cal)
 
@@ -207,6 +350,10 @@ def main():
     event_details.grid(row=0, column=0, columnspan=2)
 
 
+    # ------------------------------
+    #   Get all of the entrys from 
+    #   the template and add them
+    # ------------------------------
     event_template = events_connection.get_event_struct()
     inputs = {}
     for row, key in enumerate(event_template):
@@ -239,164 +386,13 @@ def main():
                     ),
                     tkinter.Entry(
                         event_details_frame,
-                        width=30
+                        width=50
                     )
                 ]
             
             inputs[key][0].grid(row=row+1, column=0)
             inputs[key][1].grid(row=row+1, column=1)
 
-
-    """
-    # --------------------
-    #   Event name label
-    # --------------------
-    event_name = tkinter.Label(event_details_frame, text="Event name:")
-    event_name.grid(row=1, column=0)
-
-
-    # --------------------------
-    #   Event name entry label
-    # --------------------------
-    event_name_label = tkinter.Entry(event_details_frame)
-    event_name_label.grid(row=1, column=1)
-
-
-    # --------
-    #   Date
-    # --------
-    date = tkinter.Label(event_details_frame, text="Date:")
-    date.grid(row=2, column=0)
-
-
-    # --------------------
-    #   Date entry label
-    # --------------------
-    date_label = tkinter.Entry(event_details_frame)
-    date_label.grid(row=2, column=1)
-
-
-    # --------------
-    #   Start time
-    # --------------
-    start_time = tkinter.Label(event_details_frame, text="Start time:")
-    start_time.grid(row=3, column=0)
-
-
-    # --------------------------
-    #   Start time entry label
-    # --------------------------
-    start_time_label = tkinter.Entry(event_details_frame)
-    start_time_label.grid(row=3, column=1)
-
-
-    # ------------
-    #   End time
-    # ------------
-    end_time = tkinter.Label(event_details_frame, text="End time:")
-    end_time.grid(row=4, column=0)
-
-
-    # ------------------------
-    #   End time entry label
-    # ------------------------
-    end_time_label = tkinter.Entry(event_details_frame)
-    end_time_label.grid(row=4, column=1)
-
-
-    # -------------------
-    #   Teacher contact
-    # -------------------
-    teacher_contact = tkinter.Label(event_details_frame, text="Teacher contact:")
-    teacher_contact.grid(row=5, column=0)
-
-
-    # -------------------------------
-    #   Teacher contact entry label
-    # -------------------------------
-    teacher_contact_label = tkinter.Entry(event_details_frame, width=40)
-    teacher_contact_label.grid(row=5, column=1)
-
-
-    # ---------
-    #   Sound
-    # ---------
-    sound = tkinter.Label(event_details_frame, text="Sound:")
-    sound.grid(row=6, column=0)
-
-
-    # ---------------------------
-    #   Sound entry checkbutton
-    # ---------------------------
-    sound_checkbutton_value = tkinter.IntVar()
-    sound_checkbutton = tkinter.Checkbutton(
-        event_details_frame,
-        variable=sound_checkbutton_value, 
-        onvalue=1, 
-        offvalue=0
-    )
-    sound_checkbutton.grid(row=6, column=1)
-
-
-    # --------
-    #   Mics 
-    # --------
-    mics = tkinter.Label(event_details_frame, text="Mics:")
-    mics.grid(row=7, column=0)
-
-
-    # --------------------------
-    #   Mics entry checkbutton
-    # --------------------------
-    mics_checkbutton_value = tkinter.IntVar()
-    mics_checkbutton = tkinter.Checkbutton(
-        event_details_frame,
-        variable=mics_checkbutton_value,
-        onvalue=1,
-        offvalue=0
-    )
-    mics_checkbutton.grid(row=7, column=1)
-
-
-    # ----------
-    #   Lights
-    # ----------
-    lights = tkinter.Label(event_details_frame, text="Lights:")
-    lights.grid(row=8, column=0)
-
-
-    # ----------------------------
-    #   Lights entry checkbutton
-    # ----------------------------
-    lights_checkbutton_value = tkinter.IntVar()
-    lights_checkbutton = tkinter.Checkbutton(
-        event_details_frame,
-        variable=lights_checkbutton_value,
-        onvalue=1,
-        offvalue=0
-    )
-    lights_checkbutton.grid(row=8, column=1)
-
-
-    # -------------
-    #   Projector
-    # -------------
-    projector = tkinter.Label(event_details_frame, text="Projector:")
-    projector.grid(row=9, column=0)
-
-
-    # -------------------------------
-    #   Projector entry checkbutton
-    # -------------------------------
-    projector_checkbutton_value = tkinter.IntVar()
-    projector_checkbutton = tkinter.Checkbutton(
-        event_details_frame,
-        variable=projector_checkbutton_value,
-        onvalue=1,
-        offvalue=0
-    )
-    projector_checkbutton.grid(row=9, column=1)
-    """
 
     # ---------------
     #   Next button
@@ -435,7 +431,7 @@ def main():
     #   Error message label
     # -----------------------
     error_message = tkinter.Label(view_events_window, text="", fg="red", font=("comic sans", 14))
-    error_message.grid(row=3, column=0, columnspan=4)
+    error_message.grid(row=3, column=0, columnspan=7)
 
 
     # ---------------
@@ -446,16 +442,33 @@ def main():
         text="Back",
         command=lambda: main()
     )
-    back_button_main.grid(row=5, column=0, columnspan=4, sticky="nsew")
+    back_button_main.grid(row=5, column=0, columnspan=7, sticky="nsew")
+
+
+    # -----------
+    #   Spacing
+    # -----------
+    spacing1 = tkinter.Label(
+        view_events_window,
+        width=10
+    )
+    spacing1.grid(row=0, column=0)
+
+    spacing2 = tkinter.Label(
+        view_events_window,
+        width=10
+    )
+    spacing2.grid(row=0, column=6)
 
 
     # -------------------------------
     #   view_events_window mainloop
     # -------------------------------
-    cal.grid(row=0, column=0, columnspan=2)
-    event_details_frame.grid(row=0, column=3)
+    display_event(None)
+    cal.grid(row=0, column=2, columnspan=2)
+    event_details_frame.grid(row=0, column=4)
     view_events_window.mainloop()
 
 
-
-main()
+if __name__ == "__main__":
+    main()

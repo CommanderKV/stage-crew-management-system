@@ -3,6 +3,9 @@ from database import Database
 class Events(Database):
 
     def __init__(self):
+        """
+        Initalize the events data sturture for the database
+        """
         super().__init__()
         self.path = "/"
         self.set_path(self.path)
@@ -197,8 +200,10 @@ class Events(Database):
                 self.get_event_struct()
 
                 data_updated = data
+                
         if data_updated != data:
             data_updated["version"] = float(self.template["version"])
+
         return data_updated
 
 

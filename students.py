@@ -3,6 +3,10 @@ from database import Database
 class Students(Database):
 
     def __init__(self):
+        """
+        Create an outline and conection 
+        used to connect to the database.
+        """
         super().__init__()
         self.path = "/"
         self.set_path(self.path)

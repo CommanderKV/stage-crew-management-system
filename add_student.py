@@ -3,6 +3,7 @@ from students import Students
 
 
 def main():
+
     def back():
         add_student_window.destroy()
         raise Exception("Back")
@@ -16,67 +17,74 @@ def main():
             
             return True
 
+        
+        for key in inputs.keys():
+            if key != "version":
+                item = inputs[key]
+                label = item[0].cget("text")
+                entry = item[1]
 
-        for key, item in inputs.items():
-            label = item[0].cget("text")
-            entry = item[1]
+                if str(entry.get()) == "":
+                    # entry is empty
+                    error_label_add_students.config(text="Fill in all fields", fg="red")
+                    break
 
-            if entry.get() == "":
-                # entry is empty
-                error_label_add_students.config(text="Fill in all fields", fg="red")
-                break
-
-            value = str(students_connection.template[key]).upper()
-            if entry.get() != value:
-                if is_number(value):
-                    if not is_number(entry.get()):
-                        # entry is not a number
-                        error_label_add_students.config(text="Enter a number for {}".format(label), fg="red")
-                        break
-
-                    elif int(entry.get()) < int(value):
-                        # entry is less than value
-                        error_label_add_students.config(text="Enter a number greater than {} for {}".format(value, label), fg="red")
-                        break
-
-                    elif label == "Grade":
-                        if int(entry.get()) > 12:
-                            # entry is greater than 12
-                            error_label_add_students.config(text="Enter a number less than 13 for {}".format(label), fg="red")
+                value = str(students_connection.template[key]).upper()
+                if str(entry.get()).upper() != value:
+                    if is_number(value):
+                        if not is_number(entry.get()):
+                            # entry is not a number
+                            error_label_add_students.config(text="Enter a number for {}".format(label), fg="red")
                             break
 
-                        elif int(entry.get()) < 9:
-                            # entry is less than 9
-                            error_label_add_students.config(text="Enter a number greater than 8 for {}".format(label), fg="red")
+                        elif int(entry.get()) < int(value):
+                            # entry is less than value
+                            error_label_add_students.config(text="Enter a number greater than {} for {}".format(value, label), fg="red")
+                            break
+
+                        elif label == "Grade":
+                            if int(entry.get()) > 12:
+                                # entry is greater than 12
+                                error_label_add_students.config(text="Enter a number less than 13 for {}".format(label), fg="red")
+                                break
+
+                            elif int(entry.get()) < 9:
+                                # entry is less than 9
+                                error_label_add_students.config(text="Enter a number greater than 8 for {}".format(label), fg="red")
+                                break
+                    
+                    elif label == "Email":
+                        email = entry.get().replace(" ", "")
+                        if "@" not in email:
+                            # entry is not an email
+                            error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
+                            break
+
+                        elif "." not in email:
+                            # entry is not an email
+                            error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
+                            break
+
+                        elif "tdsb.on.ca" not in email:
+                            # entry is not an email
+                            error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
+                            break
+
+                        elif len(email) < 15:
+                            # entry is not an email
+                            error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
                             break
                 
-                elif label == "Email":
-                    email = entry.get().replace(" ", "")
-                    if "@" not in email:
-                        # entry is not an email
-                        error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
-                        break
+                elif str(entry.get()).upper() == value:
+                    # entry is the same as value
+                    error_label_add_students.config(text="Change default value for {}".format(label), fg="red")
+                    break
 
-                    elif "." not in email:
-                        # entry is not an email
-                        error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
-                        break
 
-                    elif "tdsb.on.ca" not in email:
-                        # entry is not an email
-                        error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
-                        break
-
-                    elif len(email) < 15:
-                        # entry is not an email
-                        error_label_add_students.config(text="Enter a valid email for {}".format(label), fg="red")
-                        break
-            
-            elif entry.get() == value:
-                # entry is the same as value
-                error_label_add_students.config(text="Change default value for {}".format(label), fg="red")
-                break
-
+        # ----------------------------------------
+        #   If there is no error attmept adding. 
+        #       Otherwise throw that error.
+        # ----------------------------------------
         if error_label_add_students.cget("text") == "":
             # no error
             student = student_template.copy()
@@ -170,3 +178,7 @@ def main():
     # ----------------
     student_input_frame.grid(row=0, column=0)
     add_student_window.mainloop()
+
+
+if __name__ == "__main__":
+    main()
